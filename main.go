@@ -9,7 +9,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/honeycombio/beeline-go"
 	"github.com/honeycombio/beeline-go/wrappers/hnygorilla"
-	"github.com/honeycombio/beeline-go/wrappers/hnynethttp"
 )
 
 func main() {
@@ -17,6 +16,7 @@ func main() {
 	beeline.Init(beeline.Config{
 		WriteKey: os.Getenv("HONEYCOMB_KEY"),
 		Dataset:  os.Getenv("HONEYCOMB_DATASET"),
+		STDOUT:   true,
 	})
 	// ensure everything gets sent off before we exit
 	defer beeline.Close()
@@ -27,7 +27,7 @@ func main() {
 	r.HandleFunc("/", RootHandler)
 
 	// Bind to a port and pass our router in
-	log.Fatal(http.ListenAndServe(":8000", hnynethttp.WrapHandler(r)))
+	log.Fatal(http.ListenAndServe(":8000", r))
 }
 
 func RootHandler(w http.ResponseWriter, r *http.Request) {
