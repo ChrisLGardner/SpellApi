@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/honeycombio/beeline-go"
@@ -20,7 +21,12 @@ type Spell struct {
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
 	SpellData   map[string]interface{} `json:"spelldata,omitempty"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	Metadata    SpellMetadata          `json:"metadata,omitempty"`
+}
+
+type SpellMetadata struct {
+	System  string `json:"system"`
+	Creator string `json:"creator,omitempty"`
 }
 
 func main() {
@@ -38,7 +44,7 @@ func main() {
 	r.Use(hnygorilla.Middleware)
 	// Routes consist of a path and a handler function.
 	r.HandleFunc("/", RootHandler)
-	r.HandleFunc("/spells", GetSpellHandler).Methods("GET")
+	r.HandleFunc("/spells/{name}", GetSpellHandler).Methods("GET")
 	r.HandleFunc("/spells", PostSpellHandler).Methods("POST")
 
 	// Bind to a port and pass our router in
@@ -57,20 +63,38 @@ func GetSpellHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, span := beeline.StartSpan(r.Context(), "GetSpell")
 	defer span.Send()
 
+	vars := mux.Vars(r)
+	spellName := vars["name"]
+	query := r.URL.Query()
+
 	beeline.AddField(ctx, "GetSpell.Count", len(spells))
+	beeline.AddField(ctx, "GetSpell.SpellName", spellName)
+	beeline.AddField(ctx, "GetSpell.Query", query)
 	if len(spells) < 1 {
 		fmt.Fprint(w, "No Spells")
 		return
 	}
-	json, err := json.Marshal(spells)
-	if err != nil {
-		beeline.AddField(ctx, "GetSpell.Error", err)
-		http.Error(w, http.StatusText(http.StatusInternalServerError),
-			http.StatusInternalServerError)
+
+	for _, s := range spells {
+		if s.Name == strings.ToLower(spellName) {
+			json, err := json.Marshal(s)
+			if err != nil {
+				beeline.AddField(ctx, "GetSpell.Error", err)
+				http.Error(w, http.StatusText(http.StatusInternalServerError),
+					http.StatusInternalServerError)
+				return
+			}
+
+			fmt.Fprint(w, string(json))
+			return
+		}
 	}
 
-	fmt.Fprint(w, json)
+	beeline.AddField(ctx, "GetSpell.Error", "NotFound")
+	http.Error(w, http.StatusText(http.StatusNotFound),
+		http.StatusNotFound)
 }
+
 func PostSpellHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, span := beeline.StartSpan(r.Context(), "PostSpell")
 	defer span.Send()
