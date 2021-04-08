@@ -39,6 +39,7 @@ func main() {
 	// Routes consist of a path and a handler function.
 	r.HandleFunc("/", RootHandler)
 	r.HandleFunc("/spells", GetSpellHandler).Methods("GET")
+	r.HandleFunc("/spells", PostSpellHandler).Methods("POST")
 
 	// Bind to a port and pass our router in
 	log.Fatal(http.ListenAndServe(":8000", r))
@@ -69,4 +70,23 @@ func GetSpellHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprint(w, json)
+}
+func PostSpellHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, span := beeline.StartSpan(r.Context(), "PostSpell")
+	defer span.Send()
+
+	var s Spell
+
+	err := json.NewDecoder(r.Body).Decode(&s)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusBadRequest),
+			http.StatusBadRequest)
+		return
+	}
+
+	beeline.AddField(ctx, "PostSpell.Parsed", s)
+
+	spells = append(spells, s)
+
+	fmt.Fprint(w, "Success")
 }
