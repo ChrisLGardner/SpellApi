@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -16,18 +17,6 @@ import (
 var (
 	spells []Spell
 )
-
-type Spell struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	SpellData   map[string]interface{} `json:"spelldata,omitempty"`
-	Metadata    SpellMetadata          `json:"metadata,omitempty"`
-}
-
-type SpellMetadata struct {
-	System  string `json:"system"`
-	Creator string `json:"creator,omitempty"`
-}
 
 func main() {
 	// Initialize beeline. The only required field is WriteKey.
@@ -99,10 +88,20 @@ func PostSpellHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, span := beeline.StartSpan(r.Context(), "PostSpell")
 	defer span.Send()
 
-	var s Spell
-
-	err := json.NewDecoder(r.Body).Decode(&s)
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
+		beeline.AddField(ctx, "PostSpell.Error", err)
+		http.Error(w, http.StatusText(http.StatusBadRequest),
+			http.StatusBadRequest)
+		return
+	}
+
+	beeline.AddField(ctx, "PostSpell.Raw", string(body))
+
+	var s Spell
+	err = json.Unmarshal(body, &s)
+	if err != nil {
+		beeline.AddField(ctx, "PostSpell.Error", err)
 		http.Error(w, http.StatusText(http.StatusBadRequest),
 			http.StatusBadRequest)
 		return
