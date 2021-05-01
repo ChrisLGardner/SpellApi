@@ -38,7 +38,11 @@ func main() {
 	r.HandleFunc("/spells", PostSpellHandler).Methods("POST")
 
 	// Bind to a port and pass our router in
-	log.Fatal(http.ListenAndServe(":8000", r))
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "80"
+	}
+	log.Fatal(http.ListenAndServe(":"+port, r))
 }
 
 func RootHandler(w http.ResponseWriter, r *http.Request) {
