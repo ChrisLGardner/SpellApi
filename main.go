@@ -23,7 +23,6 @@ func main() {
 	beeline.Init(beeline.Config{
 		WriteKey: os.Getenv("HONEYCOMB_KEY"),
 		Dataset:  os.Getenv("HONEYCOMB_DATASET"),
-		STDOUT:   true,
 	})
 	// ensure everything gets sent off before we exit
 	defer beeline.Close()
