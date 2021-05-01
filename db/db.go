@@ -118,7 +118,7 @@ func AddSpell(ctx context.Context, mc *mongo.Client, spell []byte) error {
 	ctx, span := beeline.StartSpan(ctx, "Mongo.AddSpell")
 	defer span.Send()
 
-	beeline.AddField(ctx, "Mongo.AddSpell.Query", spell)
+	beeline.AddField(ctx, "Mongo.AddSpell.Spell", spell)
 
 	collection := mc.Database("spellapi").Collection("spells")
 
