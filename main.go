@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/honeycombio/beeline-go"
@@ -16,6 +15,7 @@ import (
 
 var (
 	spells []Spell
+	dbUrl  string
 )
 
 func main() {
@@ -29,6 +29,7 @@ func main() {
 	defer beeline.Close()
 
 	spells = []Spell{}
+	dbUrl = os.Getenv("COSMOSDB_URL")
 	r := mux.NewRouter()
 	r.Use(hnygorilla.Middleware)
 	// Routes consist of a path and a handler function.
@@ -49,39 +50,43 @@ func RootHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetSpellHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, span := beeline.StartSpan(r.Context(), "GetSpell")
+	ctx, span := beeline.StartSpan(r.Context(), "GetSpellHandler")
 	defer span.Send()
 
 	vars := mux.Vars(r)
 	spellName := vars["name"]
 	query := r.URL.Query()
 
-	beeline.AddField(ctx, "GetSpell.Count", len(spells))
-	beeline.AddField(ctx, "GetSpell.SpellName", spellName)
-	beeline.AddField(ctx, "GetSpell.Query", query)
-	if len(spells) < 1 {
-		fmt.Fprint(w, "No Spells")
+	beeline.AddField(ctx, "GetSpellHandler.SpellName", spellName)
+	beeline.AddField(ctx, "GetSpellHandler.Query", query)
+
+	spell, err := FindSpell(ctx, spellName, query)
+	if err.Error() == MultipleMatchingSpells {
+		beeline.AddField(ctx, "GetSpellHandler.Error", "MultipleMatchingSpells")
+		http.Error(w, MultipleMatchingSpells, http.StatusBadRequest)
+		return
+	} else if err != nil {
+		beeline.AddField(ctx, "GetSpellHandler.Error", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError),
+			http.StatusInternalServerError)
 		return
 	}
 
-	for _, s := range spells {
-		if s.Name == strings.ToLower(spellName) {
-			json, err := json.Marshal(s)
-			if err != nil {
-				beeline.AddField(ctx, "GetSpell.Error", err)
-				http.Error(w, http.StatusText(http.StatusInternalServerError),
-					http.StatusInternalServerError)
-				return
-			}
-
-			fmt.Fprint(w, string(json))
-			return
-		}
+	if spell.Name == "" {
+		beeline.AddField(ctx, "GetSpellHandler.Error", "NotFound")
+		http.Error(w, http.StatusText(http.StatusNotFound),
+			http.StatusNotFound)
+		return
 	}
 
-	beeline.AddField(ctx, "GetSpell.Error", "NotFound")
-	http.Error(w, http.StatusText(http.StatusNotFound),
-		http.StatusNotFound)
+	json, err := json.Marshal(spell)
+	if err != nil {
+		beeline.AddField(ctx, "GetSpellHandler.Error", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError),
+			http.StatusInternalServerError)
+		return
+	}
+	fmt.Fprint(w, string(json))
 }
 
 func PostSpellHandler(w http.ResponseWriter, r *http.Request) {
@@ -90,26 +95,36 @@ func PostSpellHandler(w http.ResponseWriter, r *http.Request) {
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		beeline.AddField(ctx, "PostSpell.Error", err)
+		beeline.AddField(ctx, "PostSpellHandler.Error", err)
 		http.Error(w, http.StatusText(http.StatusBadRequest),
 			http.StatusBadRequest)
 		return
 	}
 
-	beeline.AddField(ctx, "PostSpell.Raw", string(body))
+	beeline.AddField(ctx, "PostSpellHandler.Raw", string(body))
 
 	var s Spell
 	err = json.Unmarshal(body, &s)
 	if err != nil {
-		beeline.AddField(ctx, "PostSpell.Error", err)
+		beeline.AddField(ctx, "PostSpellHandler.Error", err)
 		http.Error(w, http.StatusText(http.StatusBadRequest),
 			http.StatusBadRequest)
 		return
 	}
 
-	beeline.AddField(ctx, "PostSpell.Parsed", s)
+	beeline.AddField(ctx, "PostSpellHandler.Parsed", s)
 
-	spells = append(spells, s)
+	err = AddSpell(ctx, s)
+	if err.Error() == SpellAlreadyExists {
+		beeline.AddField(ctx, "PostSpellHandler.Error", err)
+		http.Error(w, SpellAlreadyExists,
+			http.StatusConflict)
+	} else if err != nil {
+		beeline.AddField(ctx, "PostSpellHandler.Error", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError),
+			http.StatusInternalServerError)
+	}
 
-	fmt.Fprint(w, "Success")
+	w.WriteHeader(http.StatusCreated)
+	fmt.Fprint(w, "Spell added")
 }
