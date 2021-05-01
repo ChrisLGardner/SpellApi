@@ -1,8 +1,6 @@
 param containerName string = 'spellapi'
 param containerVersion string = 'main'
 
-@secure()
-param Token string
 param ImageRegistry string = 'halbarad.azurecr.io'
 param ImageRegistryUsername string = 'halbarad'
 
