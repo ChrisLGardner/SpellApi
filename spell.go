@@ -152,6 +152,8 @@ func AddSpell(ctx context.Context, spell Spell) error {
 		return fmt.Errorf("failed to check for existing spells: %v", err)
 	}
 
+	beeline.AddField(ctx, "AddSpell.Existing", exists)
+
 	if exists.Name == spell.Name {
 		beeline.AddField(ctx, "AddSpell.Error", SpellAlreadyExists)
 		return fmt.Errorf(SpellAlreadyExists)
