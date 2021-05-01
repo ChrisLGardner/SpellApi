@@ -64,7 +64,7 @@ func GetSpellHandler(w http.ResponseWriter, r *http.Request) {
 	beeline.AddField(ctx, "GetSpellHandler.Query", query)
 
 	spell, err := FindSpell(ctx, spellName, query)
-	if err.Error() == MultipleMatchingSpells {
+	if err != nil && err.Error() == MultipleMatchingSpells {
 		beeline.AddField(ctx, "GetSpellHandler.Error", "MultipleMatchingSpells")
 		http.Error(w, MultipleMatchingSpells, http.StatusBadRequest)
 		return
@@ -118,7 +118,7 @@ func PostSpellHandler(w http.ResponseWriter, r *http.Request) {
 	beeline.AddField(ctx, "PostSpellHandler.Parsed", s)
 
 	err = AddSpell(ctx, s)
-	if err.Error() == SpellAlreadyExists {
+	if err != nil && err.Error() == SpellAlreadyExists {
 		beeline.AddField(ctx, "PostSpellHandler.Error", err)
 		http.Error(w, SpellAlreadyExists,
 			http.StatusConflict)
