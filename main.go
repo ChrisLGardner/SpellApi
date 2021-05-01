@@ -122,10 +122,12 @@ func PostSpellHandler(w http.ResponseWriter, r *http.Request) {
 		beeline.AddField(ctx, "PostSpellHandler.Error", err)
 		http.Error(w, SpellAlreadyExists,
 			http.StatusConflict)
+		return
 	} else if err != nil {
 		beeline.AddField(ctx, "PostSpellHandler.Error", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError),
 			http.StatusInternalServerError)
+		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
