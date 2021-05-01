@@ -28,7 +28,7 @@ func main() {
 	defer beeline.Close()
 
 	spells = []Spell{}
-	dbUrl = os.Getenv("COSMOSDB_URL")
+	dbUrl = os.Getenv("COSMOSDB_URI")
 	r := mux.NewRouter()
 	r.Use(hnygorilla.Middleware)
 	// Routes consist of a path and a handler function.
