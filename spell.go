@@ -14,6 +14,7 @@ import (
 
 const (
 	MultipleMatchingSpells = "multiple matching spells found"
+	SpellAlreadyExists     = "spell already exists for this system"
 )
 
 type Spell struct {
@@ -136,4 +137,44 @@ func FindSpell(ctx context.Context, name string, query url.Values) (Spell, error
 	}
 
 	return s, nil
+}
+
+func AddSpell(ctx context.Context, spell Spell) error {
+	ctx, span := beeline.StartSpan(ctx, "AddSpell")
+	defer span.Send()
+
+	beeline.AddField(ctx, "AddSpell.Spell", spell)
+
+	queryValues := url.Values{"system": []string{spell.Metadata.System}}
+	exists, err := FindSpell(ctx, spell.Name, queryValues)
+	if err != nil {
+		beeline.AddField(ctx, "AddSpell.Error", err)
+		return fmt.Errorf("failed to check for existing spells: %v", err)
+	}
+
+	if exists.Name == spell.Name {
+		beeline.AddField(ctx, "AddSpell.Error", SpellAlreadyExists)
+		return fmt.Errorf(SpellAlreadyExists)
+	}
+
+	bsonSpell, err := bson.Marshal(spell)
+	if err != nil {
+		beeline.AddField(ctx, "AddSpell.Error", err)
+		return fmt.Errorf("failed to marshall data: %v", err)
+	}
+
+	dbClient, err := db.ConnectDb(ctx, dbUrl)
+	if err != nil {
+		beeline.AddField(ctx, "AddSpell.Error", err)
+		return fmt.Errorf("failed to connect to DB: %v", err)
+	}
+	defer dbClient.Disconnect(ctx)
+
+	err = db.AddSpell(ctx, dbClient, bsonSpell)
+	if err != nil {
+		beeline.AddField(ctx, "AddSpell.Error", err)
+		return fmt.Errorf("failed to add spell to DB: %v", err)
+	}
+
+	return nil
 }

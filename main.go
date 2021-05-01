@@ -95,26 +95,36 @@ func PostSpellHandler(w http.ResponseWriter, r *http.Request) {
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		beeline.AddField(ctx, "PostSpell.Error", err)
+		beeline.AddField(ctx, "PostSpellHandler.Error", err)
 		http.Error(w, http.StatusText(http.StatusBadRequest),
 			http.StatusBadRequest)
 		return
 	}
 
-	beeline.AddField(ctx, "PostSpell.Raw", string(body))
+	beeline.AddField(ctx, "PostSpellHandler.Raw", string(body))
 
 	var s Spell
 	err = json.Unmarshal(body, &s)
 	if err != nil {
-		beeline.AddField(ctx, "PostSpell.Error", err)
+		beeline.AddField(ctx, "PostSpellHandler.Error", err)
 		http.Error(w, http.StatusText(http.StatusBadRequest),
 			http.StatusBadRequest)
 		return
 	}
 
-	beeline.AddField(ctx, "PostSpell.Parsed", s)
+	beeline.AddField(ctx, "PostSpellHandler.Parsed", s)
 
-	spells = append(spells, s)
+	err = AddSpell(ctx, s)
+	if err.Error() == SpellAlreadyExists {
+		beeline.AddField(ctx, "PostSpellHandler.Error", err)
+		http.Error(w, SpellAlreadyExists,
+			http.StatusConflict)
+	} else if err != nil {
+		beeline.AddField(ctx, "PostSpellHandler.Error", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError),
+			http.StatusInternalServerError)
+	}
 
-	fmt.Fprint(w, "Success")
+	w.WriteHeader(http.StatusCreated)
+	fmt.Fprint(w, "Spell added")
 }

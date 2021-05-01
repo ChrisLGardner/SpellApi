@@ -112,3 +112,21 @@ func GetSpell(ctx context.Context, mc *mongo.Client, spell bson.M) ([]bson.M, er
 
 	return result, nil
 }
+
+func AddSpell(ctx context.Context, mc *mongo.Client, spell []byte) error {
+
+	ctx, span := beeline.StartSpan(ctx, "Mongo.AddSpell")
+	defer span.Send()
+
+	beeline.AddField(ctx, "Mongo.AddSpell.Query", spell)
+
+	collection := mc.Database("spellapi").Collection("spells")
+
+	err := writeDbObject(ctx, collection, spell)
+	if err != nil {
+		beeline.AddField(ctx, "Mongo.AddSpell.Error", err)
+		return err
+	}
+
+	return nil
+}
