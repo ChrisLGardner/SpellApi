@@ -90,7 +90,7 @@ func FindSpell(ctx context.Context, name string, query url.Values) (Spell, error
 	for k, v := range query {
 		if k == "system" {
 			bsonQuery["metadata.system"] = bson.M{
-				"$eq": v,
+				"$eq": v[0],
 			}
 		} else {
 			bsonQuery[(fmt.Sprintf("spelldata.%s", k))] = bson.M{
