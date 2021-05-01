@@ -67,22 +67,16 @@ func runQuery(ctx context.Context, mc *mongo.Collection, query interface{}) ([]b
 	return results, nil
 }
 
-func writeDbObject(ctx context.Context, mc *mongo.Collection, obj interface{}) error {
+func writeDbObject(ctx context.Context, mc *mongo.Collection, obj []byte) error {
 
 	ctx, span := beeline.StartSpan(ctx, "Mongo.WriteObject")
 	defer span.Send()
 
-	data, err := bson.Marshal(obj)
-	if err != nil {
-		beeline.AddField(ctx, "Mongo.WriteObject.Error", err)
-		return err
-	}
-
 	beeline.AddField(ctx, "Mongo.WriteObject.Collection", mc.Name())
 	beeline.AddField(ctx, "Mongo.WriteObject.Database", mc.Database().Name())
-	beeline.AddField(ctx, "Mongo.WriteObject.Object", data)
+	beeline.AddField(ctx, "Mongo.WriteObject.Object", obj)
 
-	res, err := mc.InsertOne(ctx, data)
+	res, err := mc.InsertOne(ctx, obj)
 	if err != nil {
 		beeline.AddField(ctx, "Mongo.WriteObject.Error", err)
 		return err
