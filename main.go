@@ -115,6 +115,14 @@ func PostSpellHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if s.Name == "" || s.Description == "" || s.Metadata.System == "" {
+		beeline.AddField(ctx, "PostSpellHandler.Error", "MissingRequiredField")
+		resp := fmt.Sprintf("%v: Missing required field.", http.StatusText(http.StatusBadRequest))
+		http.Error(w, resp,
+			http.StatusBadRequest)
+		return
+	}
+
 	beeline.AddField(ctx, "PostSpellHandler.Parsed", s)
 
 	err = AddSpell(ctx, s)
