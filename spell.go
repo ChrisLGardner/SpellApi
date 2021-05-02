@@ -47,7 +47,7 @@ func (s Spell) MarshalJSON() ([]byte, error) {
 		Name        string                 `json:"name" bson:"name"`
 		Description string                 `json:"description" bson:"description"`
 		SpellData   map[string]interface{} `json:"spelldata,omitempty" bson:"spelldata,omitempty"`
-		Metadata    SpellMetadata          `json:"metadata,omitempty" bson:"metadata,omitempty"`
+		Metadata    SpellMetadata          `json:"metadata" bson:"metadata"`
 	}
 
 	temp.Name = strings.Title(s.Name)
@@ -66,7 +66,7 @@ type SpellMetadata struct {
 func (smd SpellMetadata) MarshalJSON() ([]byte, error) {
 
 	var temp struct {
-		System string
+		System string `json:"system"`
 	}
 
 	temp.System = smd.System
