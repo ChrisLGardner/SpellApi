@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/honeycombio/beeline-go"
@@ -106,26 +107,23 @@ func PostSpellHandler(w http.ResponseWriter, r *http.Request) {
 
 	beeline.AddField(ctx, "PostSpellHandler.Raw", string(body))
 
-	var s Spell
-	err = json.Unmarshal(body, &s)
-	if err != nil {
-		beeline.AddField(ctx, "PostSpellHandler.Error", err)
-		http.Error(w, http.StatusText(http.StatusBadRequest),
-			http.StatusBadRequest)
-		return
-	}
-
-	if s.Name == "" || s.Description == "" || s.Metadata.System == "" {
+	spell, err := ParseSpell(ctx, body)
+	if err != nil && strings.Contains(err.Error(), "missing required") {
 		beeline.AddField(ctx, "PostSpellHandler.Error", "MissingRequiredField")
-		resp := fmt.Sprintf("%v: Missing required field.", http.StatusText(http.StatusBadRequest))
+		resp := fmt.Sprintf("%v: %v", http.StatusText(http.StatusBadRequest), err.Error())
 		http.Error(w, resp,
 			http.StatusBadRequest)
 		return
+	} else if err != nil {
+		beeline.AddField(ctx, "PostSpellHandler.Error", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError),
+			http.StatusInternalServerError)
+		return
 	}
 
-	beeline.AddField(ctx, "PostSpellHandler.Parsed", s)
+	beeline.AddField(ctx, "PostSpellHandler.Parsed", spell)
 
-	err = AddSpell(ctx, s)
+	err = AddSpell(ctx, spell)
 	if err != nil && err.Error() == SpellAlreadyExists {
 		beeline.AddField(ctx, "PostSpellHandler.Error", err)
 		http.Error(w, SpellAlreadyExists,
