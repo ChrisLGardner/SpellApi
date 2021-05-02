@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -12,6 +13,12 @@ var spellJson = []byte(`{
 	"name": "Fireball",
 	"description": "Does the Big Boom"	
 }`)
+
+type TestCaseItem struct {
+	input    string
+	result   string
+	hasError bool
+}
 
 func TestSpell_Unmarshal(t *testing.T) {
 	var got spellapi.Spell
@@ -82,4 +89,41 @@ func TestSpellMetadata_Marshal(t *testing.T) {
 		t.Errorf("Marshal() returned system %v; Want %v", got.System, want.System)
 	}
 
+}
+
+func TestParseSpell(t *testing.T) {
+
+	testCases := []TestCaseItem{
+		{
+			"{\"name\":\"test1\",\"description\":\"example\",\"metadata\":{\"system\":\"test\"}}",
+			"",
+			false,
+		},
+		{
+			"{\"description\":\"example\",\"metadata\":{\"system\":\"test\"}}",
+			"missing required field: name",
+			true,
+		},
+		{
+			"{\"name\":\"test1\",\"metadata\":{\"system\":\"test\"}}",
+			"missing required field: description",
+			true,
+		},
+		{
+			"{\"name\":\"test1\",\"description\":\"example\"}",
+			"missing required field: system",
+			true,
+		},
+	}
+
+	for _, v := range testCases {
+
+		ctx := context.Background()
+		_, err := spellapi.ParseSpell(ctx, []byte(v.input))
+		if v.hasError && err != nil {
+			if err.Error() != v.result {
+				t.Errorf("ParseSpell() err %v, want %v", err, v.result)
+			}
+		}
+	}
 }

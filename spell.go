@@ -180,3 +180,29 @@ func AddSpell(ctx context.Context, spell Spell) error {
 
 	return nil
 }
+
+func ParseSpell(ctx context.Context, in []byte) (Spell, error) {
+
+	ctx, span := beeline.StartSpan(ctx, "ParseSpell")
+	defer span.Send()
+
+	var s Spell
+	err := json.Unmarshal(in, &s)
+	if err != nil {
+		beeline.AddField(ctx, "ParseSpell.Error", err)
+		return Spell{}, err
+	}
+
+	if s.Name == "" {
+		beeline.AddField(ctx, "PostSpellHandler.MissingField", "Name")
+		return s, fmt.Errorf("missing required field: name")
+	} else if s.Description == "" {
+		beeline.AddField(ctx, "PostSpellHandler.MissingField", "Description")
+		return s, fmt.Errorf("missing required field: description")
+	} else if s.Metadata.System == "" {
+		beeline.AddField(ctx, "PostSpellHandler.MissingField", "System")
+		return s, fmt.Errorf("missing required field: system")
+	}
+
+	return s, nil
+}
