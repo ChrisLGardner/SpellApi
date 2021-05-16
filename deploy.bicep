@@ -11,64 +11,26 @@ param HoneycombDataset string
 @secure()
 param HoneycombApiKey string
 
+param website_name string = 'spellapi'
 
-resource bot_aci 'Microsoft.ContainerInstance/containerGroups@2018-10-01' = {
-  name: containerName
-  location: 'westeurope'
+resource website_name_web 'Microsoft.Web/sites/config@2018-11-01' = {
+  name: '${website_name}/web'
   properties: {
-    containers: [
-      {
-        name: containerName
-        properties: {
-          image: '${ImageRegistry}/go/${containerName}:${containerVersion}'
-          ports: [
-            {
-              protocol: 'TCP'
-              port: 80
-            }
-          ]
-          environmentVariables: [
-            {
-              name: 'HONEYCOMB_KEY'
-              value: HoneycombApiKey
-            }
-            {
-              name: 'HONEYCOMB_DATASET'
-              value: HoneycombDataset
-            }
-            {
-              name: 'COSMOSDB_URI'
-              value: listConnectionStrings(cosmosdb.id, '2020-04-01').connectionStrings[0].connectionString
-            }
-          ]
-          resources: {
-            requests: {
-              memoryInGB: '1.5'
-              cpu: 1
-            }
-          }
-        }
-      }
-    ]
-    imageRegistryCredentials: [
-      {
-        server: ImageRegistry
-        username: ImageRegistryUsername
-        password: ImageRegistryPassword
-      }
-    ]
-    restartPolicy: 'OnFailure'
-    ipAddress: {
-      ports: [
-        {
-          protocol: 'TCP'
-          port: 80
-        }
-      ]
-      type: 'Public'
-      dnsNameLabel: containerName
-    }
-    osType: 'Linux'
+    linuxFxVersion: 'DOCKER|${ImageRegistry}/go/${containerName}:${containerVersion}'
+  }
+}
+
+resource website_name_appsettings 'Microsoft.Web/sites/config@2018-11-01' = {
+  name: '${website_name}/appsettings'
+  properties: {
+    COSMOSDB_URI: listConnectionStrings(cosmosdb.id, '2020-04-01').connectionStrings[0].connectionString
+    DOCKER_REGISTRY_SERVER_PASSWORD: ImageRegistryPassword
+    DOCKER_REGISTRY_SERVER_URL: 'https://${ImageRegistry}'
+    DOCKER_REGISTRY_SERVER_USERNAME: ImageRegistryUsername
+    HONEYCOMB_DATASET: HoneycombDataset
+    HONEYCOMB_KEY: HoneycombApiKey
+    WEBSITES_ENABLE_APP_SERVICE_STORAGE: false
+    PORT: 443
   }
 }
 
