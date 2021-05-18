@@ -27,7 +27,6 @@ func main() {
 	r := mux.NewRouter()
 	r.Use(hnygorilla.Middleware)
 	// Routes consist of a path and a handler function.
-	r.HandleFunc("/", RootHandler)
 	r.HandleFunc("/spells/{name}", GetSpellHandler).Methods("GET")
 	r.HandleFunc("/spells", PostSpellHandler).Methods("POST")
 
