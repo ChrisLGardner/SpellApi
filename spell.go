@@ -83,7 +83,7 @@ func FindSpell(ctx context.Context, name string, query url.Values) (Spell, error
 
 	bsonQuery := bson.M{
 		"name": bson.M{
-			"$eq": name,
+			"$eq": strings.ToLower(name),
 		},
 	}
 
