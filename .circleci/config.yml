@@ -140,11 +140,7 @@ jobs:
                   az deployment group create --resource-group $AZ_RG --template-file artifacts/deploy.json \
                   --name $MAJOR.$MINOR.$BUILD_NUMBER \
                   --parameters containerName=$AZ_ACI containerVersion=$MAJOR.$MINOR.$BUILD_NUMBER \
-                  ImageRegistryPassword=$AZ_REG_PASSWORD HoneycombDataset=$HONEYCOMB_DATASET HoneycombApiKey=$MARKER_API_KEY \
-
-            - run: |
-                  buildevents cmd $CIRCLE_WORKFLOW_ID $BUILDEVENTS_SPAN_ID az_container_start -- \
-                  az container start --resource-group $AZ_RG --name $AZ_ACI
+                  ImageRegistryPassword=$AZ_REG_PASSWORD HoneycombDataset=$HONEYCOMB_DATASET HoneycombApiKey=$MARKER_API_KEY
 
             - run: |
                   DATE=$(date +%s)
