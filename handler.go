@@ -11,14 +11,6 @@ import (
 	"github.com/honeycombio/beeline-go"
 )
 
-func RootHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, span := beeline.StartSpan(r.Context(), "home")
-	defer span.Send()
-
-	beeline.AddField(ctx, "test", "value")
-	fmt.Fprint(w, "{\"result\":\"success\"}")
-}
-
 func GetSpellHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, span := beeline.StartSpan(r.Context(), "GetSpellHandler")
 	defer span.Send()
