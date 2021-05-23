@@ -9,33 +9,30 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type DB struct {
+	*mongo.Client
+}
+
 // Connect to the specified mongo instance using the context for timeout
-func ConnectDb(ctx context.Context, uri string) (*mongo.Client, error) {
-	ctx, span := beeline.StartSpan(ctx, "Mongo.Connect")
-	defer span.Send()
-
-	beeline.AddField(ctx, "Mongo.Server", uri)
-
+func ConnectDb(uri string) (*DB, error) {
+	ctx := context.Background()
 	clientOptions := options.Client().ApplyURI(uri).SetDirect(true)
 	c, err := mongo.NewClient(clientOptions)
 	if err != nil {
-		beeline.AddField(ctx, "Mongo.Client.Error", err)
 		return nil, err
 	}
 
 	err = c.Connect(ctx)
 	if err != nil {
-		beeline.AddField(ctx, "Mongo.Connect.Error", err)
 		return nil, err
 	}
 
 	err = c.Ping(ctx, nil)
 	if err != nil {
-		beeline.AddField(ctx, "Mongo.Ping.Error", err)
 		return nil, err
 	}
 
-	return c, nil
+	return &DB{c}, nil
 }
 
 //	collection := mc.Database("reminders").Collection("reminders")
@@ -87,16 +84,16 @@ func writeDbObject(ctx context.Context, mc *mongo.Collection, obj []byte) error 
 	return nil
 }
 
-func GetSpell(ctx context.Context, mc *mongo.Client, spell bson.M) ([]bson.M, error) {
+func (db *DB) GetSpell(ctx context.Context, search bson.M) ([]bson.M, error) {
 
 	ctx, span := beeline.StartSpan(ctx, "Mongo.GetSpell")
 	defer span.Send()
 
-	beeline.AddField(ctx, "Mongo.GetSpell.Query", spell)
+	beeline.AddField(ctx, "Mongo.GetSpell.Query", search)
 
-	collection := mc.Database("spellapi").Collection("spells")
+	collection := db.Database("spellapi").Collection("spells")
 
-	result, err := runQuery(ctx, collection, spell)
+	result, err := runQuery(ctx, collection, search)
 	if err != nil {
 		beeline.AddField(ctx, "Mongo.GetSpell.Error", err)
 		return nil, err
@@ -107,14 +104,14 @@ func GetSpell(ctx context.Context, mc *mongo.Client, spell bson.M) ([]bson.M, er
 	return result, nil
 }
 
-func AddSpell(ctx context.Context, mc *mongo.Client, spell []byte) error {
+func (db *DB) AddSpell(ctx context.Context, spell []byte) error {
 
 	ctx, span := beeline.StartSpan(ctx, "Mongo.AddSpell")
 	defer span.Send()
 
 	beeline.AddField(ctx, "Mongo.AddSpell.Spell", spell)
 
-	collection := mc.Database("spellapi").Collection("spells")
+	collection := db.Database("spellapi").Collection("spells")
 
 	err := writeDbObject(ctx, collection, spell)
 	if err != nil {
