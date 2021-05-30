@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/chrislgardner/spellapi/db"
 	"github.com/gorilla/mux"
 	"github.com/honeycombio/beeline-go"
 	"github.com/honeycombio/beeline-go/wrappers/hnygorilla"
@@ -24,11 +25,20 @@ func main() {
 	defer beeline.Close()
 
 	dbUrl = os.Getenv("COSMOSDB_URI")
+	db, err := db.ConnectDb(dbUrl)
+	if err != nil {
+		panic(err)
+	}
+
+	spellService := SpellService{
+		store: db,
+	}
+
 	r := mux.NewRouter()
 	r.Use(hnygorilla.Middleware)
 	// Routes consist of a path and a handler function.
-	r.HandleFunc("/spells/{name}", GetSpellHandler).Methods("GET")
-	r.HandleFunc("/spells", PostSpellHandler).Methods("POST")
+	r.HandleFunc("/spells/{name}", spellService.GetSpellHandler).Methods("GET")
+	r.HandleFunc("/spells", spellService.PostSpellHandler).Methods("POST")
 
 	// Bind to a port and pass our router in
 	port := os.Getenv("PORT")

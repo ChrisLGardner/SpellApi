@@ -11,7 +11,7 @@ import (
 	"github.com/honeycombio/beeline-go"
 )
 
-func GetSpellHandler(w http.ResponseWriter, r *http.Request) {
+func (s *SpellService) GetSpellHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, span := beeline.StartSpan(r.Context(), "GetSpellHandler")
 	defer span.Send()
 
@@ -22,7 +22,7 @@ func GetSpellHandler(w http.ResponseWriter, r *http.Request) {
 	beeline.AddField(ctx, "GetSpellHandler.SpellName", spellName)
 	beeline.AddField(ctx, "GetSpellHandler.Query", query)
 
-	spell, err := FindSpell(ctx, spellName, query)
+	spell, err := FindSpell(ctx, s.store, spellName, query)
 	if err != nil && err.Error() == MultipleMatchingSpells {
 		beeline.AddField(ctx, "GetSpellHandler.Error", "MultipleMatchingSpells")
 		http.Error(w, MultipleMatchingSpells, http.StatusBadRequest)
@@ -51,7 +51,7 @@ func GetSpellHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, string(json))
 }
 
-func PostSpellHandler(w http.ResponseWriter, r *http.Request) {
+func (s *SpellService) PostSpellHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, span := beeline.StartSpan(r.Context(), "PostSpell")
 	defer span.Send()
 
@@ -81,7 +81,7 @@ func PostSpellHandler(w http.ResponseWriter, r *http.Request) {
 
 	beeline.AddField(ctx, "PostSpellHandler.Parsed", spell)
 
-	err = AddSpell(ctx, spell)
+	err = AddSpell(ctx, s.store, spell)
 	if err != nil && err.Error() == SpellAlreadyExists {
 		beeline.AddField(ctx, "PostSpellHandler.Error", err)
 		http.Error(w, SpellAlreadyExists,
