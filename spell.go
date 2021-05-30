@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/chrislgardner/spellapi/db"
 	"github.com/honeycombio/beeline-go"
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -16,6 +15,15 @@ const (
 	MultipleMatchingSpells = "multiple matching spells found"
 	SpellAlreadyExists     = "spell already exists for this system"
 )
+
+type Store interface {
+	GetSpell(ctx context.Context, search bson.M) ([]bson.M, error)
+	AddSpell(ctx context.Context, spell []byte) error
+}
+
+type SpellService struct {
+	store Store
+}
 
 type Spell struct {
 	Name        string                 `json:"name"`
@@ -74,7 +82,7 @@ func (smd SpellMetadata) MarshalJSON() ([]byte, error) {
 	return json.Marshal(temp)
 }
 
-func FindSpell(ctx context.Context, name string, query url.Values) (Spell, error) {
+func FindSpell(ctx context.Context, db Store, name string, query url.Values) (Spell, error) {
 	ctx, span := beeline.StartSpan(ctx, "FindSpell")
 	defer span.Send()
 
@@ -101,14 +109,7 @@ func FindSpell(ctx context.Context, name string, query url.Values) (Spell, error
 
 	beeline.AddField(ctx, "FindSpell.BsonQuery", bsonQuery)
 
-	dbClient, err := db.ConnectDb(ctx, dbUrl)
-	if err != nil {
-		beeline.AddField(ctx, "FindSpell.Error", err)
-		return Spell{}, fmt.Errorf("failed to connect to DB: %v", err)
-	}
-	defer dbClient.Disconnect(ctx)
-
-	results, err := db.GetSpell(ctx, dbClient, bsonQuery)
+	results, err := db.GetSpell(ctx, bsonQuery)
 	if err != nil {
 		beeline.AddField(ctx, "FindSpell.Error", err)
 		return Spell{}, fmt.Errorf("query failed on DB: %v", err)
@@ -139,14 +140,14 @@ func FindSpell(ctx context.Context, name string, query url.Values) (Spell, error
 	return s, nil
 }
 
-func AddSpell(ctx context.Context, spell Spell) error {
+func AddSpell(ctx context.Context, db Store, spell Spell) error {
 	ctx, span := beeline.StartSpan(ctx, "AddSpell")
 	defer span.Send()
 
 	beeline.AddField(ctx, "AddSpell.Spell", spell)
 
 	queryValues := url.Values{"system": []string{spell.Metadata.System}}
-	exists, err := FindSpell(ctx, spell.Name, queryValues)
+	exists, err := FindSpell(ctx, db, spell.Name, queryValues)
 	if err != nil {
 		beeline.AddField(ctx, "AddSpell.Error", err)
 		return fmt.Errorf("failed to check for existing spells: %v", err)
@@ -165,14 +166,7 @@ func AddSpell(ctx context.Context, spell Spell) error {
 		return fmt.Errorf("failed to marshall data: %v", err)
 	}
 
-	dbClient, err := db.ConnectDb(ctx, dbUrl)
-	if err != nil {
-		beeline.AddField(ctx, "AddSpell.Error", err)
-		return fmt.Errorf("failed to connect to DB: %v", err)
-	}
-	defer dbClient.Disconnect(ctx)
-
-	err = db.AddSpell(ctx, dbClient, bsonSpell)
+	err = db.AddSpell(ctx, bsonSpell)
 	if err != nil {
 		beeline.AddField(ctx, "AddSpell.Error", err)
 		return fmt.Errorf("failed to add spell to DB: %v", err)
