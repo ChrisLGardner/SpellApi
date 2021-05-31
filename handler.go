@@ -52,7 +52,7 @@ func (s *SpellService) GetSpellHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *SpellService) PostSpellHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, span := beeline.StartSpan(r.Context(), "PostSpell")
+	ctx, span := beeline.StartSpan(r.Context(), "PostSpellHandler")
 	defer span.Send()
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -99,18 +99,18 @@ func (s *SpellService) PostSpellHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *SpellService) DeleteSpellHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, span := beeline.StartSpan(r.Context(), "DeleteSpell")
+	ctx, span := beeline.StartSpan(r.Context(), "DeleteSpellHandler")
 	defer span.Send()
 
 	if deleteEnabled := s.flags.GetBoolFlag(ctx, "delete-spell", s.flags.GetUser(ctx, r)); deleteEnabled {
-		beeline.AddField(ctx, "DeleteSpell.Flag", deleteEnabled)
+		beeline.AddField(ctx, "DeleteSpellHandler.Flag", deleteEnabled)
 		vars := mux.Vars(r)
 		spellName := vars["name"]
 		query := r.URL.Query()
 
 		err := DeleteSpell(ctx, s.store, spellName, query)
 		if err != nil {
-			beeline.AddField(ctx, "GetSpellHandler.Error", "NotFound")
+			beeline.AddField(ctx, "DeleteSpellHandler.Error", "NotFound")
 			http.Error(w, http.StatusText(http.StatusNotFound),
 				http.StatusNotFound)
 			return
@@ -119,7 +119,7 @@ func (s *SpellService) DeleteSpellHandler(w http.ResponseWriter, r *http.Request
 		fmt.Fprint(w, "Spell Removed")
 
 	} else {
-		beeline.AddField(ctx, "DeleteSpell.Flag", deleteEnabled)
+		beeline.AddField(ctx, "DeleteSpellHandler.Flag", deleteEnabled)
 		http.Error(w, http.StatusText(http.StatusForbidden),
 			http.StatusForbidden)
 		return
