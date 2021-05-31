@@ -84,6 +84,26 @@ func writeDbObject(ctx context.Context, mc *mongo.Collection, obj []byte) error 
 	return nil
 }
 
+func deleteDbObject(ctx context.Context, mc *mongo.Collection, query interface{}) error {
+
+	ctx, span := beeline.StartSpan(ctx, "Mongo.DeleteDbObject")
+	defer span.Send()
+
+	beeline.AddField(ctx, "Mongo.DeleteDbObject.Collection", mc.Name())
+	beeline.AddField(ctx, "Mongo.DeleteDbObject.Database", mc.Database().Name())
+	beeline.AddField(ctx, "Mongo.DeleteDbObject.Query", query)
+
+	deleted, err := mc.DeleteOne(ctx, query)
+	if err != nil {
+		beeline.AddField(ctx, "Mongo.DeleteDbObject.Error", err)
+		return err
+	}
+
+	beeline.AddField(ctx, "Mongo.DeleteDbObject.DeletedCount", deleted)
+
+	return nil
+}
+
 func (db *DB) GetSpell(ctx context.Context, search bson.M) ([]bson.M, error) {
 
 	ctx, span := beeline.StartSpan(ctx, "Mongo.GetSpell")
@@ -116,6 +136,24 @@ func (db *DB) AddSpell(ctx context.Context, spell []byte) error {
 	err := writeDbObject(ctx, collection, spell)
 	if err != nil {
 		beeline.AddField(ctx, "Mongo.AddSpell.Error", err)
+		return err
+	}
+
+	return nil
+}
+
+func (db *DB) DeleteSpell(ctx context.Context, spell bson.M) error {
+
+	ctx, span := beeline.StartSpan(ctx, "Mongo.DeleteSpell")
+	defer span.Send()
+
+	beeline.AddField(ctx, "Mongo.DeleteSpell.Spell", spell)
+
+	collection := db.Database("spellapi").Collection("spells")
+
+	err := deleteDbObject(ctx, collection, spell)
+	if err != nil {
+		beeline.AddField(ctx, "Mongo.DeleteSpell.Error", err)
 		return err
 	}
 

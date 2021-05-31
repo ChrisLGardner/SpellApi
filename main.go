@@ -51,6 +51,7 @@ func main() {
 	r.Use(hnygorilla.Middleware)
 	// Routes consist of a path and a handler function.
 	r.HandleFunc("/spells/{name}", spellService.GetSpellHandler).Methods("GET")
+	r.HandleFunc("/spells/{name}", spellService.DeleteSpellHandler).Methods("DELETE")
 	r.HandleFunc("/spells", spellService.PostSpellHandler).Methods("POST")
 
 	// Bind to a port and pass our router in
