@@ -30,8 +30,21 @@ func main() {
 		panic(err)
 	}
 
-	spellService := SpellService{
-		store: db,
+	var spellService SpellService
+	if ldApiKey := os.Getenv("LAUNCHDARKLY_KEY"); ldApiKey != "" {
+		ldclient, err := NewLaunchDarklyClient(ldApiKey, 5)
+		if err != nil {
+			panic(err)
+		}
+
+		spellService = SpellService{
+			store: db,
+			flags: ldclient,
+		}
+	} else {
+		spellService = SpellService{
+			store: db,
+		}
 	}
 
 	r := mux.NewRouter()

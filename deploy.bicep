@@ -10,6 +10,8 @@ param HoneycombDataset string
 
 @secure()
 param HoneycombApiKey string
+@secure()
+param LaunchDarklyKey string
 
 param website_name string = 'spellapi'
 
@@ -29,6 +31,7 @@ resource website_name_appsettings 'Microsoft.Web/sites/config@2018-11-01' = {
     DOCKER_REGISTRY_SERVER_USERNAME: ImageRegistryUsername
     HONEYCOMB_DATASET: HoneycombDataset
     HONEYCOMB_KEY: HoneycombApiKey
+    LAUNCHDARKLY_KEY: LaunchDarklyKey
     WEBSITES_ENABLE_APP_SERVICE_STORAGE: false
     PORT: 443
   }
