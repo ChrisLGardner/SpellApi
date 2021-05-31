@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/honeycombio/beeline-go"
 	"go.mongodb.org/mongo-driver/bson"
+	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
 )
 
 const (
@@ -21,8 +23,15 @@ type Store interface {
 	AddSpell(ctx context.Context, spell []byte) error
 }
 
+type FeatureFlags interface {
+	GetUser(ctx context.Context, r http.Request) lduser.User
+	GetIntFlag(ctx context.Context, flag string, user lduser.User) int
+	GetBoolFlag(ctx context.Context, flag string, user lduser.User) bool
+}
+
 type SpellService struct {
 	store Store
+	flags FeatureFlags
 }
 
 type Spell struct {
