@@ -23,7 +23,7 @@ func NewLaunchDarklyClient(key string, timeout int) (*LaunchDarkly, error) {
 	return &LaunchDarkly{ldclient}, nil
 }
 
-func (ld *LaunchDarkly) GetUser(ctx context.Context, r http.Request) lduser.User {
+func (ld *LaunchDarkly) GetUser(ctx context.Context, r *http.Request) lduser.User {
 	ctx, span := beeline.StartSpan(ctx, "LaunchDarkly.GetUser")
 	defer span.Send()
 

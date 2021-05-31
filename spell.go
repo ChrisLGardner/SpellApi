@@ -21,10 +21,11 @@ const (
 type Store interface {
 	GetSpell(ctx context.Context, search bson.M) ([]bson.M, error)
 	AddSpell(ctx context.Context, spell []byte) error
+	DeleteSpell(ctx context.Context, spell bson.M) error
 }
 
 type FeatureFlags interface {
-	GetUser(ctx context.Context, r http.Request) lduser.User
+	GetUser(ctx context.Context, r *http.Request) lduser.User
 	GetIntFlag(ctx context.Context, flag string, user lduser.User) int
 	GetBoolFlag(ctx context.Context, flag string, user lduser.User) bool
 }
@@ -208,4 +209,36 @@ func ParseSpell(ctx context.Context, in []byte) (Spell, error) {
 	}
 
 	return s, nil
+}
+
+func DeleteSpell(ctx context.Context, db Store, spell string, query url.Values) error {
+	ctx, span := beeline.StartSpan(ctx, "DeleteSpell")
+	defer span.Send()
+
+	beeline.AddField(ctx, "DeleteSpell.SpellName", spell)
+
+	exists, err := FindSpell(ctx, db, spell, query)
+	if err != nil {
+		beeline.AddField(ctx, "DeleteSpell.Error", err)
+		return fmt.Errorf("failed to check for existing spells: %v", err)
+	}
+
+	beeline.AddField(ctx, "DeleteSpell.Existing", exists)
+
+	bsonQuery := bson.M{
+		"name": bson.M{
+			"$eq": exists.Name,
+		},
+		"metadata.system": bson.M{
+			"$eq": exists.Metadata.System,
+		},
+	}
+
+	err = db.DeleteSpell(ctx, bsonQuery)
+	if err != nil {
+		beeline.AddField(ctx, "DeleteSpell.Error", err)
+		return fmt.Errorf("failed to delete spell from DB: %v", err)
+	}
+
+	return nil
 }

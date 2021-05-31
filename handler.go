@@ -97,3 +97,32 @@ func (s *SpellService) PostSpellHandler(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusCreated)
 	fmt.Fprint(w, "Spell added")
 }
+
+func (s *SpellService) DeleteSpellHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, span := beeline.StartSpan(r.Context(), "DeleteSpell")
+	defer span.Send()
+
+	if deleteEnabled := s.flags.GetBoolFlag(ctx, "delete-spell", s.flags.GetUser(ctx, r)); deleteEnabled {
+		beeline.AddField(ctx, "DeleteSpell.Flag", deleteEnabled)
+		vars := mux.Vars(r)
+		spellName := vars["name"]
+		query := r.URL.Query()
+
+		err := DeleteSpell(ctx, s.store, spellName, query)
+		if err != nil {
+			beeline.AddField(ctx, "GetSpellHandler.Error", "NotFound")
+			http.Error(w, http.StatusText(http.StatusNotFound),
+				http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusAccepted)
+		fmt.Fprint(w, "Spell Removed")
+
+	} else {
+		beeline.AddField(ctx, "DeleteSpell.Flag", deleteEnabled)
+		http.Error(w, http.StatusText(http.StatusForbidden),
+			http.StatusForbidden)
+		return
+	}
+
+}
