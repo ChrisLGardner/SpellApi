@@ -242,3 +242,59 @@ func DeleteSpell(ctx context.Context, db Store, spell string, query url.Values) 
 
 	return nil
 }
+
+func GetAllSpell(ctx context.Context, db Store, query url.Values) ([]Spell, error) {
+	ctx, span := beeline.StartSpan(ctx, "GetAllSpell")
+	defer span.Send()
+
+	beeline.AddField(ctx, "GetAllSpell.RawQuery", query)
+
+	bsonQuery := bson.M{}
+
+	for k, v := range query {
+		if k == "system" {
+			bsonQuery["metadata.system"] = bson.M{
+				"$eq": v[0],
+			}
+		} else {
+			bsonQuery[(fmt.Sprintf("spelldata.%s", k))] = bson.M{
+				"$eq": v,
+			}
+		}
+	}
+
+	beeline.AddField(ctx, "GetAllSpell.BsonQuery", bsonQuery)
+
+	results, err := db.GetSpell(ctx, bsonQuery)
+	if err != nil {
+		beeline.AddField(ctx, "GetAllSpell.Error", err)
+		return []Spell{}, fmt.Errorf("query failed on DB: %v", err)
+	}
+
+	beeline.AddField(ctx, "GetAllSpell.ResultsCount", len(results))
+	beeline.AddField(ctx, "GetAllSpell.Results", results)
+
+	if len(results) == 0 {
+		return []Spell{}, nil
+	}
+
+	var s []Spell
+
+	for _, v := range results {
+		temp, err := bson.Marshal(v)
+		if err != nil {
+			beeline.AddField(ctx, "GetAllSpell.Error", err)
+			return []Spell{}, fmt.Errorf("failed to marshall data: %v", err)
+		}
+
+		var tempSpell Spell
+		err = bson.Unmarshal(temp, &tempSpell)
+		if err != nil {
+			beeline.AddField(ctx, "GetAllSpell.error", err)
+			return []Spell{}, fmt.Errorf("failed to unmarshall data: %v", err)
+		}
+		s = append(s, tempSpell)
+	}
+
+	return s, nil
+}
