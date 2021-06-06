@@ -126,3 +126,38 @@ func (s *SpellService) DeleteSpellHandler(w http.ResponseWriter, r *http.Request
 	}
 
 }
+
+func (s *SpellService) GetAllSpellHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, span := beeline.StartSpan(r.Context(), "GetAllSpellHandler")
+	defer span.Send()
+
+	if deleteEnabled := s.flags.GetBoolFlag(ctx, "get-all-spell", s.flags.GetUser(ctx, r)); deleteEnabled {
+		beeline.AddField(ctx, "GetAllSpellHandler.Flag", deleteEnabled)
+		query := r.URL.Query()
+
+		beeline.AddField(ctx, "GetAllSpellHandler.Query", query)
+
+		spells, err := GetAllSpell(ctx, s.store, query)
+		if err != nil {
+			beeline.AddField(ctx, "GetAllSpellHandler.Error", "NotFound")
+			http.Error(w, http.StatusText(http.StatusNotFound),
+				http.StatusNotFound)
+			return
+		}
+		json, err := json.Marshal(spells)
+		if err != nil {
+			beeline.AddField(ctx, "GetAllSpellHandler.Error", err)
+			http.Error(w, http.StatusText(http.StatusInternalServerError),
+				http.StatusInternalServerError)
+			return
+		}
+		fmt.Fprint(w, string(json))
+
+	} else {
+		beeline.AddField(ctx, "GetAllSpellHandler.Flag", deleteEnabled)
+		http.Error(w, http.StatusText(http.StatusForbidden),
+			http.StatusForbidden)
+		return
+	}
+
+}
