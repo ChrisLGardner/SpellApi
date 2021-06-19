@@ -112,7 +112,7 @@ func FindSpell(ctx context.Context, db Store, name string, query url.Values) (Sp
 			}
 		} else {
 			bsonQuery[(fmt.Sprintf("spelldata.%s", k))] = bson.M{
-				"$eq": v,
+				"$in": v,
 			}
 		}
 	}
@@ -258,7 +258,7 @@ func GetAllSpell(ctx context.Context, db Store, query url.Values) ([]Spell, erro
 			}
 		} else {
 			bsonQuery[(fmt.Sprintf("spelldata.%s", k))] = bson.M{
-				"$eq": v,
+				"$in": v,
 			}
 		}
 	}
