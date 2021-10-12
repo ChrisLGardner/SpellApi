@@ -3,10 +3,18 @@ module github.com/chrislgardner/spellapi
 go 1.16
 
 require (
-	github.com/gorilla/mux v1.8.0 // indirect
-	github.com/honeycombio/beeline-go v0.11.1 // indirect
-	github.com/launchdarkly-labs/go-coverage-enforcer v1.1.0 // indirect
-	go.mongodb.org/mongo-driver v1.5.1 // indirect
-	gopkg.in/launchdarkly/go-sdk-common.v2 v2.2.2 // indirect
-	gopkg.in/launchdarkly/go-server-sdk.v5 v5.3.0 // indirect
+	github.com/golang/snappy v0.0.3 // indirect
+	github.com/google/uuid v1.3.0 // indirect
+	github.com/gorilla/mux v1.8.0
+	go.mongodb.org/mongo-driver v1.7.3
+	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.25.0
+	go.opentelemetry.io/otel v1.0.1
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.0.1
+	go.opentelemetry.io/otel/sdk v1.0.1
+	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2 // indirect
+	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4 // indirect
+	golang.org/x/text v0.3.6 // indirect
+	google.golang.org/grpc v1.41.0
+	gopkg.in/launchdarkly/go-sdk-common.v2 v2.2.2
+	gopkg.in/launchdarkly/go-server-sdk.v5 v5.3.0
 )
