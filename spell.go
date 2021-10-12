@@ -8,8 +8,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/honeycombio/beeline-go"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
 )
 
@@ -76,6 +77,12 @@ func (s Spell) MarshalJSON() ([]byte, error) {
 	return json.Marshal(temp)
 }
 
+func (s Spell) String() string {
+	json, _ := json.Marshal(s)
+
+	return string(json)
+}
+
 type SpellMetadata struct {
 	System  string `json:"system" bson:"system"`
 	Creator string `json:"creator,omitempty" bson:"creator,omitempty"`
@@ -92,12 +99,21 @@ func (smd SpellMetadata) MarshalJSON() ([]byte, error) {
 	return json.Marshal(temp)
 }
 
-func FindSpell(ctx context.Context, db Store, name string, query url.Values) (Spell, error) {
-	ctx, span := beeline.StartSpan(ctx, "FindSpell")
-	defer span.Send()
+func (s SpellMetadata) String() string {
+	json, _ := json.Marshal(s)
 
-	beeline.AddField(ctx, "FindSpell.Spellname", name)
-	beeline.AddField(ctx, "FindSpell.RawQuery", query)
+	return string(json)
+}
+
+func FindSpell(ctx context.Context, db Store, name string, query url.Values) (Spell, error) {
+	tracer := otel.Tracer("Encantus")
+	ctx, span := tracer.Start(ctx, "FindSpell")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("FindSpell.Spellname", name),
+		attribute.String("FindSpell.RawQuery", query.Encode()),
+	)
 
 	bsonQuery := bson.M{
 		"name": bson.M{
@@ -117,16 +133,18 @@ func FindSpell(ctx context.Context, db Store, name string, query url.Values) (Sp
 		}
 	}
 
-	beeline.AddField(ctx, "FindSpell.BsonQuery", bsonQuery)
+	span.SetAttributes(attribute.String("FindSpell.BsonQuery", fmt.Sprintf("%v", bsonQuery)))
 
 	results, err := db.GetSpell(ctx, bsonQuery)
 	if err != nil {
-		beeline.AddField(ctx, "FindSpell.Error", err)
+		span.SetAttributes(attribute.String("FindSpell.Error", err.Error()))
 		return Spell{}, fmt.Errorf("query failed on DB: %v", err)
 	}
 
-	beeline.AddField(ctx, "FindSpell.ResultsCount", len(results))
-	beeline.AddField(ctx, "FindSpell.Results", results)
+	span.SetAttributes(
+		attribute.Int("FindSpell.ResultsCount", len(results)),
+		attribute.String("FindSpell.Results", fmt.Sprintf("%v", results)),
+	)
 
 	if len(results) == 0 {
 		return Spell{}, nil
@@ -137,13 +155,13 @@ func FindSpell(ctx context.Context, db Store, name string, query url.Values) (Sp
 	var s Spell
 	temp, err := bson.Marshal(results[0])
 	if err != nil {
-		beeline.AddField(ctx, "FindSpell.Error", err)
+		span.SetAttributes(attribute.String("FindSpell.Error", err.Error()))
 		return Spell{}, fmt.Errorf("failed to marshall data: %v", err)
 	}
 
 	err = bson.Unmarshal(temp, &s)
 	if err != nil {
-		beeline.AddField(ctx, "FindSpell.error", err)
+		span.SetAttributes(attribute.String("FindSpell.error", err.Error()))
 		return Spell{}, fmt.Errorf("failed to unmarshall data: %v", err)
 	}
 
@@ -151,34 +169,35 @@ func FindSpell(ctx context.Context, db Store, name string, query url.Values) (Sp
 }
 
 func AddSpell(ctx context.Context, db Store, spell Spell) error {
-	ctx, span := beeline.StartSpan(ctx, "AddSpell")
-	defer span.Send()
+	tracer := otel.Tracer("Encantus")
+	ctx, span := tracer.Start(ctx, "AddSpell")
+	defer span.End()
 
-	beeline.AddField(ctx, "AddSpell.Spell", spell)
+	span.SetAttributes(attribute.Stringer("AddSpell.Spell", spell))
 
 	queryValues := url.Values{"system": []string{spell.Metadata.System}}
 	exists, err := FindSpell(ctx, db, spell.Name, queryValues)
 	if err != nil {
-		beeline.AddField(ctx, "AddSpell.Error", err)
+		span.SetAttributes(attribute.String("AddSpell.Error", err.Error()))
 		return fmt.Errorf("failed to check for existing spells: %v", err)
 	}
 
-	beeline.AddField(ctx, "AddSpell.Existing", exists)
+	span.SetAttributes(attribute.Stringer("AddSpell.Existing", exists))
 
 	if exists.Name == spell.Name {
-		beeline.AddField(ctx, "AddSpell.Error", SpellAlreadyExists)
+		span.SetAttributes(attribute.String("AddSpell.Error", SpellAlreadyExists))
 		return fmt.Errorf(SpellAlreadyExists)
 	}
 
 	bsonSpell, err := bson.Marshal(spell)
 	if err != nil {
-		beeline.AddField(ctx, "AddSpell.Error", err)
+		span.SetAttributes(attribute.String("AddSpell.Error", err.Error()))
 		return fmt.Errorf("failed to marshall data: %v", err)
 	}
 
 	err = db.AddSpell(ctx, bsonSpell)
 	if err != nil {
-		beeline.AddField(ctx, "AddSpell.Error", err)
+		span.SetAttributes(attribute.String("AddSpell.Error", err.Error()))
 		return fmt.Errorf("failed to add spell to DB: %v", err)
 	}
 
@@ -187,24 +206,25 @@ func AddSpell(ctx context.Context, db Store, spell Spell) error {
 
 func ParseSpell(ctx context.Context, in []byte) (Spell, error) {
 
-	ctx, span := beeline.StartSpan(ctx, "ParseSpell")
-	defer span.Send()
+	tracer := otel.Tracer("Encantus")
+	ctx, span := tracer.Start(ctx, "ParseSpell")
+	defer span.End()
 
 	var s Spell
 	err := json.Unmarshal(in, &s)
 	if err != nil {
-		beeline.AddField(ctx, "ParseSpell.Error", err)
+		span.SetAttributes(attribute.String("ParseSpell.Error", err.Error()))
 		return Spell{}, err
 	}
 
 	if s.Name == "" {
-		beeline.AddField(ctx, "PostSpellHandler.MissingField", "Name")
+		span.SetAttributes(attribute.String("PostSpellHandler.MissingField", "Name"))
 		return s, fmt.Errorf("missing required field: name")
 	} else if s.Description == "" {
-		beeline.AddField(ctx, "PostSpellHandler.MissingField", "Description")
+		span.SetAttributes(attribute.String("PostSpellHandler.MissingField", "Description"))
 		return s, fmt.Errorf("missing required field: description")
 	} else if s.Metadata.System == "" {
-		beeline.AddField(ctx, "PostSpellHandler.MissingField", "System")
+		span.SetAttributes(attribute.String("PostSpellHandler.MissingField", "System"))
 		return s, fmt.Errorf("missing required field: system")
 	}
 
@@ -212,18 +232,19 @@ func ParseSpell(ctx context.Context, in []byte) (Spell, error) {
 }
 
 func DeleteSpell(ctx context.Context, db Store, spell string, query url.Values) error {
-	ctx, span := beeline.StartSpan(ctx, "DeleteSpell")
-	defer span.Send()
+	tracer := otel.Tracer("Encantus")
+	ctx, span := tracer.Start(ctx, "DeleteSpell")
+	defer span.End()
 
-	beeline.AddField(ctx, "DeleteSpell.SpellName", spell)
+	span.SetAttributes(attribute.String("DeleteSpell.SpellName", spell))
 
 	exists, err := FindSpell(ctx, db, spell, query)
 	if err != nil {
-		beeline.AddField(ctx, "DeleteSpell.Error", err)
+		span.SetAttributes(attribute.String("DeleteSpell.Error", err.Error()))
 		return fmt.Errorf("failed to check for existing spells: %v", err)
 	}
 
-	beeline.AddField(ctx, "DeleteSpell.Existing", exists)
+	span.SetAttributes(attribute.Stringer("DeleteSpell.Existing", exists))
 
 	bsonQuery := bson.M{
 		"name": bson.M{
@@ -236,7 +257,7 @@ func DeleteSpell(ctx context.Context, db Store, spell string, query url.Values) 
 
 	err = db.DeleteSpell(ctx, bsonQuery)
 	if err != nil {
-		beeline.AddField(ctx, "DeleteSpell.Error", err)
+		span.SetAttributes(attribute.String("DeleteSpell.Error", err.Error()))
 		return fmt.Errorf("failed to delete spell from DB: %v", err)
 	}
 
@@ -244,10 +265,11 @@ func DeleteSpell(ctx context.Context, db Store, spell string, query url.Values) 
 }
 
 func GetAllSpell(ctx context.Context, db Store, query url.Values) ([]Spell, error) {
-	ctx, span := beeline.StartSpan(ctx, "GetAllSpell")
-	defer span.Send()
+	tracer := otel.Tracer("Encantus")
+	ctx, span := tracer.Start(ctx, "GetAllSpell")
+	defer span.End()
 
-	beeline.AddField(ctx, "GetAllSpell.RawQuery", query)
+	span.SetAttributes(attribute.String("GetAllSpell.RawQuery", query.Encode()))
 
 	bsonQuery := bson.M{}
 
@@ -263,16 +285,16 @@ func GetAllSpell(ctx context.Context, db Store, query url.Values) ([]Spell, erro
 		}
 	}
 
-	beeline.AddField(ctx, "GetAllSpell.BsonQuery", bsonQuery)
+	span.SetAttributes(attribute.String("GetAllSpell.BsonQuery", fmt.Sprintf("%v", bsonQuery)))
 
 	results, err := db.GetSpell(ctx, bsonQuery)
 	if err != nil {
-		beeline.AddField(ctx, "GetAllSpell.Error", err)
+		span.SetAttributes(attribute.String("GetAllSpell.Error", err.Error()))
 		return []Spell{}, fmt.Errorf("query failed on DB: %v", err)
 	}
 
-	beeline.AddField(ctx, "GetAllSpell.ResultsCount", len(results))
-	beeline.AddField(ctx, "GetAllSpell.Results", results)
+	span.SetAttributes(attribute.Int("GetAllSpell.ResultsCount", len(results)))
+	span.SetAttributes(attribute.String("GetAllSpell.Results", fmt.Sprintf("%v", results)))
 
 	if len(results) == 0 {
 		return []Spell{}, nil
@@ -283,14 +305,14 @@ func GetAllSpell(ctx context.Context, db Store, query url.Values) ([]Spell, erro
 	for _, v := range results {
 		temp, err := bson.Marshal(v)
 		if err != nil {
-			beeline.AddField(ctx, "GetAllSpell.Error", err)
+			span.SetAttributes(attribute.String("GetAllSpell.Error", err.Error()))
 			return []Spell{}, fmt.Errorf("failed to marshall data: %v", err)
 		}
 
 		var tempSpell Spell
 		err = bson.Unmarshal(temp, &tempSpell)
 		if err != nil {
-			beeline.AddField(ctx, "GetAllSpell.error", err)
+			span.SetAttributes(attribute.String("GetAllSpell.error", err.Error()))
 			return []Spell{}, fmt.Errorf("failed to unmarshall data: %v", err)
 		}
 		s = append(s, tempSpell)

@@ -5,7 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/honeycombio/beeline-go"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
 	ldclient "gopkg.in/launchdarkly/go-server-sdk.v5"
 )
@@ -24,44 +25,47 @@ func NewLaunchDarklyClient(key string, timeout int) (*LaunchDarkly, error) {
 }
 
 func (ld *LaunchDarkly) GetUser(ctx context.Context, r *http.Request) lduser.User {
-	ctx, span := beeline.StartSpan(ctx, "LaunchDarkly.GetUser")
-	defer span.Send()
+	tracer := otel.Tracer("Encantus")
+	ctx, span := tracer.Start(ctx, "LaunchDarkly.GetUser")
+	defer span.End()
 
 	user := lduser.NewUser(r.Header.Get("X-SPELLAPI-USERID"))
 
-	beeline.AddField(ctx, "LaunchDarkly.GetUser.User", user)
+	span.SetAttributes(attribute.Stringer("LaunchDarkly.GetUser.User", user))
 
 	return user
 }
 
 func (ld *LaunchDarkly) GetBoolFlag(ctx context.Context, flag string, user lduser.User) bool {
-	ctx, span := beeline.StartSpan(ctx, "LaunchDarkly.GetBoolFlag")
-	defer span.Send()
+	tracer := otel.Tracer("Encantus")
+	ctx, span := tracer.Start(ctx, "LaunchDarkly.GetBoolFlag")
+	defer span.End()
 
-	beeline.AddField(ctx, "LaunchDarkly.GetBoolFlag.Flag", flag)
-	beeline.AddField(ctx, "LaunchDarkly.GetBoolFlag.User", user)
+	span.SetAttributes(attribute.String("LaunchDarkly.GetBoolFlag.Flag", flag))
+	span.SetAttributes(attribute.Stringer("LaunchDarkly.GetBoolFlag.User", user))
 
 	res, err := ld.BoolVariation(flag, user, false)
 	if err != nil {
-		beeline.AddField(ctx, "LaunchDarkly.GetBoolFlag.Error", err)
+		span.SetAttributes(attribute.String("LaunchDarkly.GetBoolFlag.Error", err.Error()))
 	}
-	beeline.AddField(ctx, "LaunchDarkly.GetBoolFlag.State", res)
+	span.SetAttributes(attribute.Bool("LaunchDarkly.GetBoolFlag.State", res))
 
 	return res
 }
 
 func (ld *LaunchDarkly) GetIntFlag(ctx context.Context, flag string, user lduser.User) int {
-	ctx, span := beeline.StartSpan(ctx, "LaunchDarkly.GetIntFlag")
-	defer span.Send()
+	tracer := otel.Tracer("Encantus")
+	ctx, span := tracer.Start(ctx, "LaunchDarkly.GetIntFlag")
+	defer span.End()
 
-	beeline.AddField(ctx, "LaunchDarkly.GetIntFlag.Flag", flag)
-	beeline.AddField(ctx, "LaunchDarkly.GetIntFlag.User", user)
+	span.SetAttributes(attribute.String("LaunchDarkly.GetIntFlag.Flag", flag))
+	span.SetAttributes(attribute.Stringer("LaunchDarkly.GetIntFlag.User", user))
 
 	res, err := ld.IntVariation(flag, user, 0)
 	if err != nil {
-		beeline.AddField(ctx, "LaunchDarkly.GetIntFlag.Error", err)
+		span.SetAttributes(attribute.String("LaunchDarkly.GetIntFlag.Error", err.Error()))
 	}
-	beeline.AddField(ctx, "LaunchDarkly.GetIntFlag.State", res)
+	span.SetAttributes(attribute.Int("LaunchDarkly.GetIntFlag.State", res))
 
 	return res
 }
