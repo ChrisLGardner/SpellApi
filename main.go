@@ -89,7 +89,7 @@ func initHoneycomb() (context.Context, *sdktrace.TracerProvider) {
 	res, err := resource.New(ctx,
 		resource.WithAttributes(
 			// the service name used to display traces in backends
-			semconv.ServiceNameKey.String("AdventureGuild.Discord"),
+			semconv.ServiceNameKey.String("Encantus"),
 		),
 	)
 	if err != nil {
