@@ -138,33 +138,24 @@ func (s *SpellService) GetAllSpellHandler(w http.ResponseWriter, r *http.Request
 	ctx, span := tracer.Start(r.Context(), "GetAllSpellHandler")
 	defer span.End()
 
-	if deleteEnabled := s.flags.GetBoolFlag(ctx, "get-all-spell", s.flags.GetUser(ctx, r)); deleteEnabled {
-		span.SetAttributes(attribute.Bool("GetAllSpellHandler.Flag", deleteEnabled))
-		query := r.URL.Query()
+	query := r.URL.Query()
 
-		span.SetAttributes(attribute.String("GetAllSpellHandler.Query", query.Encode()))
+	span.SetAttributes(attribute.String("GetAllSpellHandler.Query", query.Encode()))
 
-		spells, err := GetAllSpell(ctx, s.store, query)
-		if err != nil {
-			span.SetAttributes(attribute.String("GetAllSpellHandler.Error", "NotFound"))
-			http.Error(w, http.StatusText(http.StatusNotFound),
-				http.StatusNotFound)
-			return
-		}
-		json, err := json.Marshal(spells)
-		if err != nil {
-			span.SetAttributes(attribute.String("GetAllSpellHandler.Error", err.Error()))
-			http.Error(w, http.StatusText(http.StatusInternalServerError),
-				http.StatusInternalServerError)
-			return
-		}
-		fmt.Fprint(w, string(json))
-
-	} else {
-		span.SetAttributes(attribute.Bool("GetAllSpellHandler.Flag", deleteEnabled))
-		http.Error(w, http.StatusText(http.StatusForbidden),
-			http.StatusForbidden)
+	spells, err := GetAllSpell(ctx, s.store, query)
+	if err != nil {
+		span.SetAttributes(attribute.String("GetAllSpellHandler.Error", "NotFound"))
+		http.Error(w, http.StatusText(http.StatusNotFound),
+			http.StatusNotFound)
 		return
 	}
+	json, err := json.Marshal(spells)
+	if err != nil {
+		span.SetAttributes(attribute.String("GetAllSpellHandler.Error", err.Error()))
+		http.Error(w, http.StatusText(http.StatusInternalServerError),
+			http.StatusInternalServerError)
+		return
+	}
+	fmt.Fprint(w, string(json))
 
 }
