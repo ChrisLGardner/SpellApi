@@ -113,6 +113,30 @@ func deleteDbObject(ctx context.Context, mc *mongo.Collection, query interface{}
 	return nil
 }
 
+func getDistinctValues(ctx context.Context, mc *mongo.Collection, key string) ([]string, error) {
+	tracer := otel.Tracer("Encantus")
+	ctx, span := tracer.Start(ctx, "Mongo.getDistinctValues")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("Mongo.getDistinctValues.Collection", mc.Name()),
+		attribute.String("Mongo.getDistinctValues.Database", mc.Database().Name()),
+	)
+
+	results, err := mc.Distinct(ctx, key, bson.D{})
+	if err != nil {
+		span.SetAttributes(attribute.String("Mongo.getDistinctValues.Error", err.Error()))
+		return nil, err
+	}
+
+	span.SetAttributes(attribute.String("Mongo.getDistinctValues.RawResults", fmt.Sprintf("%v", results)))
+	res := make([]string, len(results))
+	for i, v := range results {
+		res[i] = fmt.Sprintf("%v", v)
+	}
+	return res, nil
+}
+
 func (db *DB) GetSpell(ctx context.Context, search bson.M) ([]bson.M, error) {
 
 	tracer := otel.Tracer("Encantus")
@@ -170,4 +194,20 @@ func (db *DB) DeleteSpell(ctx context.Context, spell bson.M) error {
 	}
 
 	return nil
+}
+
+func (db *DB) GetMetadataValues(ctx context.Context, metadataName string) ([]string, error) {
+	tracer := otel.Tracer("Encantus")
+	ctx, span := tracer.Start(ctx, "Mongo.GetMetadataValues")
+	defer span.End()
+
+	collection := db.Database("spellapi").Collection("spells")
+
+	values, err := getDistinctValues(ctx, collection, metadataName)
+	if err != nil {
+		span.SetAttributes(attribute.String("Mongo.GetMetadataValues.Error", err.Error()))
+		return nil, err
+	}
+
+	return values, nil
 }
