@@ -71,7 +71,7 @@ resource cosmosdb 'Microsoft.DocumentDb/databaseAccounts@2020-04-01' = {
       }
     ]
     apiProperties: {
-      serverVersion: '3.6'
+      serverVersion: '4.0'
     }
   }
   tags: {
