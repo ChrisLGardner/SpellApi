@@ -60,6 +60,7 @@ func main() {
 	r.HandleFunc("/spells/{name}", spellService.DeleteSpellHandler).Methods("DELETE")
 	r.HandleFunc("/spells", spellService.PostSpellHandler).Methods("POST")
 	r.HandleFunc("/spells", spellService.GetAllSpellHandler).Methods("GET")
+	r.HandleFunc("/spellmetadata/{name}", spellService.GetSpellMetadataHandler).Methods("GET")
 
 	// Bind to a port and pass our router in
 	port := os.Getenv("PORT")
