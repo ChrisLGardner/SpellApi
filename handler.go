@@ -187,7 +187,8 @@ func (s *SpellService) GetSpellMetadataHandler(w http.ResponseWriter, r *http.Re
 				http.StatusInternalServerError)
 			return
 		}
-		fmt.Fprint(w, string(json))
+
+		fmt.Fprintf(w, "{\"%s\":%s}", metadataName, string(json))
 	} else {
 		span.SetAttributes(attribute.Bool("GetSpellMetadataHandler.Flag", metadataEnabled))
 		http.Error(w, http.StatusText(http.StatusForbidden),
