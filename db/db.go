@@ -270,7 +270,7 @@ func (db *DB) GetMetadataNames(ctx context.Context) ([]string, error) {
 	}
 
 	exist := make(map[string]bool)
-	var keys []string
+	keys := []string{"system"}
 	for _, v := range keysRaw {
 		if _, ok := exist[v["data"].(string)]; !ok {
 			exist[v["data"].(string)] = true
