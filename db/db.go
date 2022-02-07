@@ -137,6 +137,50 @@ func getDistinctValues(ctx context.Context, mc *mongo.Collection, key string) ([
 	return res, nil
 }
 
+func getKeys(ctx context.Context, mc *mongo.Collection) ([]bson.M, error) {
+	tracer := otel.Tracer("Encantus")
+	ctx, span := tracer.Start(ctx, "Mongo.GetKeys")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("Mongo.GetKeys.Collection", mc.Name()),
+		attribute.String("Mongo.GetKeys.Database", mc.Database().Name()),
+	)
+
+	query := []bson.M{
+		{
+			"$project": bson.M{
+				"data": bson.M{
+					"$objectToArray": "$$ROOT.spelldata",
+				},
+			},
+		},
+		{
+			"$project": bson.M{
+				"data": "$data.k",
+			},
+		},
+		{
+			"$unwind": "$data",
+		},
+	}
+
+	cursor, err := mc.Aggregate(ctx, query)
+	if err != nil {
+		span.SetAttributes(attribute.String("Mongo.GetKeys.Error", err.Error()))
+		return nil, err
+	}
+
+	var results []bson.M
+	if err = cursor.All(ctx, &results); err != nil {
+		span.SetAttributes(attribute.String("Mongo.GetKeys.Error", err.Error()))
+		return nil, err
+	}
+	span.SetAttributes(attribute.Int("Mongo.GetKeys.Results.Count", len(results)))
+
+	return results, nil
+}
+
 func (db *DB) GetSpell(ctx context.Context, search bson.M) ([]bson.M, error) {
 
 	tracer := otel.Tracer("Encantus")
@@ -210,4 +254,30 @@ func (db *DB) GetMetadataValues(ctx context.Context, metadataName string) ([]str
 	}
 
 	return values, nil
+}
+
+func (db *DB) GetMetadataNames(ctx context.Context) ([]string, error) {
+	tracer := otel.Tracer("Encantus")
+	ctx, span := tracer.Start(ctx, "Mongo.GetMetadataNames")
+	defer span.End()
+
+	collection := db.Database("spellapi").Collection("spells")
+
+	keysRaw, err := getKeys(ctx, collection)
+	if err != nil {
+		span.SetAttributes(attribute.String("Mongo.GetMetadataNames.Error", err.Error()))
+		return nil, err
+	}
+
+	exist := make(map[string]bool)
+	var keys []string
+	for _, v := range keysRaw {
+		if _, ok := exist[v["data"].(string)]; !ok {
+			exist[v["data"].(string)] = true
+			keys = append(keys, v["data"].(string))
+		}
+	}
+
+	span.SetAttributes(attribute.String("Mongo.GetMetadataNames.Keys", fmt.Sprint(keys)))
+	return keys, nil
 }
