@@ -196,3 +196,38 @@ func (s *SpellService) GetSpellMetadataHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 }
+
+func (s *SpellService) GetAllSpellMetadataHandler(w http.ResponseWriter, r *http.Request) {
+	tracer := otel.Tracer("Encantus")
+	ctx, span := tracer.Start(r.Context(), "GetAllSpellMetadataHandler")
+	defer span.End()
+
+	if metadataEnabled := s.flags.GetBoolFlag(ctx, "get-spell-metadata-names", s.flags.GetUser(ctx, r)); metadataEnabled {
+		span.SetAttributes(attribute.Bool("GetAllSpellMetadataHandler.Flag", metadataEnabled))
+
+		query := r.URL.Query()
+
+		span.SetAttributes(attribute.String("GetAllSpellMetadataHandler.Query", query.Encode()))
+
+		metadata, err := GetAllSpellMetadata(ctx, s.store, query)
+		if err != nil {
+			span.SetAttributes(attribute.String("GetAllSpellMetadataHandler.Error", "NotFound"))
+			http.Error(w, http.StatusText(http.StatusNotFound),
+				http.StatusNotFound)
+			return
+		}
+		json, err := json.Marshal(metadata)
+		if err != nil {
+			span.SetAttributes(attribute.String("GetAllSpellMetadataHandler.Error", err.Error()))
+			http.Error(w, http.StatusText(http.StatusInternalServerError),
+				http.StatusInternalServerError)
+			return
+		}
+		fmt.Fprint(w, string(json))
+	} else {
+		span.SetAttributes(attribute.Bool("GetAllSpellMetadataHandler.Flag", metadataEnabled))
+		http.Error(w, http.StatusText(http.StatusForbidden),
+			http.StatusForbidden)
+		return
+	}
+}

@@ -24,6 +24,7 @@ type Store interface {
 	AddSpell(ctx context.Context, spell []byte) error
 	DeleteSpell(ctx context.Context, spell bson.M) error
 	GetMetadataValues(ctx context.Context, metadata string) ([]string, error)
+	GetMetadataNames(ctx context.Context) ([]string, error)
 }
 
 type FeatureFlags interface {
@@ -344,4 +345,20 @@ func GetSpellMetadata(ctx context.Context, db Store, metadataName string) ([]str
 	span.SetAttributes(attribute.String("GetSpellMetadata.Results", fmt.Sprintf("%v", results)))
 
 	return results, nil
+}
+
+func GetAllSpellMetadata(ctx context.Context, db Store, query url.Values) ([]string, error) {
+	tracer := otel.Tracer("Encantus")
+	ctx, span := tracer.Start(ctx, "GetAllSpellMetadata")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("GetAllSpellMetadata.RawQuery", query.Encode()))
+
+	res, err := db.GetMetadataNames(ctx)
+	if err != nil {
+		span.SetAttributes(attribute.String("GetAllSpellMetadata.error", err.Error()))
+		return nil, fmt.Errorf("failed to get metadata: %v", err)
+	}
+
+	return res, nil
 }
