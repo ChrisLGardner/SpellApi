@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -68,39 +69,118 @@ func (s *SpellService) PostSpellHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	span.SetAttributes(attribute.String("PostSpellHandler.Raw", string(body)))
+	if multipostEnabled := s.flags.GetBoolFlag(ctx, "multipost-spell", s.flags.GetUser(ctx, r)); multipostEnabled {
+		span.SetAttributes(attribute.Bool("PostSpellHandler.Multipost.Flag", multipostEnabled))
 
-	spell, err := ParseSpell(ctx, body)
-	if err != nil && strings.Contains(err.Error(), "missing required") {
-		span.SetAttributes(attribute.String("PostSpellHandler.Error", "MissingRequiredField"))
-		resp := fmt.Sprintf("%v: %v", http.StatusText(http.StatusBadRequest), err.Error())
-		http.Error(w, resp,
-			http.StatusBadRequest)
-		return
-	} else if err != nil {
-		span.SetAttributes(attribute.String("PostSpellHandler.Error", err.Error()))
-		http.Error(w, http.StatusText(http.StatusInternalServerError),
-			http.StatusInternalServerError)
-		return
+		var incomingRequest Request
+		err = json.NewDecoder(bytes.NewReader(body)).Decode(&incomingRequest)
+		if err != nil {
+			span.SetAttributes(attribute.String("PostSpellHandler.Error", err.Error()))
+			http.Error(w, http.StatusText(http.StatusInternalServerError),
+				http.StatusInternalServerError)
+			return
+		}
+
+		resp := Response{}
+		resp.TraceId = span.SpanContext().TraceID().String()
+		resp.Data = []ErrorResponse{}
+		errorOccured := false
+
+		for _, d := range incomingRequest.Data {
+
+			temp, err := json.Marshal(d)
+			if err != nil {
+				resp.Data = append(resp.Data, ErrorResponse{err.Error(), http.StatusBadRequest})
+				errorOccured = true
+				continue
+			}
+
+			spell, err := ParseSpell(ctx, temp)
+			if err != nil && strings.Contains(err.Error(), "missing required") {
+				resp.Data = append(resp.Data, ErrorResponse{err.Error(), http.StatusBadRequest})
+				errorOccured = true
+				continue
+
+			} else if err != nil {
+				resp.Data = append(resp.Data, ErrorResponse{err.Error(), http.StatusInternalServerError})
+				errorOccured = true
+				continue
+			}
+
+			span.SetAttributes(attribute.Stringer("PostSpellHandler.Parsed", spell))
+
+			err = AddSpell(ctx, s.store, spell)
+			if err != nil && err.Error() == SpellAlreadyExists {
+				resp.Data = append(resp.Data, ErrorResponse{err.Error(), http.StatusConflict})
+				errorOccured = true
+				continue
+			} else if err != nil {
+				resp.Data = append(resp.Data, ErrorResponse{err.Error(), http.StatusInternalServerError})
+				errorOccured = true
+				continue
+			}
+		}
+
+		resp.Count = len(incomingRequest.Data)
+		span.SetAttributes(attribute.Int("PostSpellHandler.SpellCount", resp.Count))
+
+		if errorOccured {
+			resp.ResponseCode = http.StatusBadRequest
+			resp.ResponseMessage = "Some errors occured while processing input. See Data property for more details."
+			span.SetAttributes(attribute.String("PostSpellHandler.Error", "MissingRequiredField"))
+			w.WriteHeader(http.StatusBadRequest)
+		} else {
+			resp.ResponseCode = http.StatusCreated
+			resp.ResponseMessage = "Spell(s) added"
+			w.WriteHeader(http.StatusCreated)
+		}
+
+		responseBytes, err := json.Marshal(resp)
+		if err != nil {
+			span.SetAttributes(attribute.String("PostSpellHandler.Error", err.Error()))
+			http.Error(w, http.StatusText(http.StatusInternalServerError),
+				http.StatusInternalServerError)
+			return
+		}
+
+		w.Write(responseBytes)
+
+	} else {
+
+		span.SetAttributes(attribute.String("PostSpellHandler.Raw", string(body)))
+
+		spell, err := ParseSpell(ctx, body)
+		if err != nil && strings.Contains(err.Error(), "missing required") {
+			span.SetAttributes(attribute.String("PostSpellHandler.Error", "MissingRequiredField"))
+			resp := fmt.Sprintf("%v: %v", http.StatusText(http.StatusBadRequest), err.Error())
+			http.Error(w, resp,
+				http.StatusBadRequest)
+			return
+		} else if err != nil {
+			span.SetAttributes(attribute.String("PostSpellHandler.Error", err.Error()))
+			http.Error(w, http.StatusText(http.StatusInternalServerError),
+				http.StatusInternalServerError)
+			return
+		}
+
+		span.SetAttributes(attribute.Stringer("PostSpellHandler.Parsed", spell))
+
+		err = AddSpell(ctx, s.store, spell)
+		if err != nil && err.Error() == SpellAlreadyExists {
+			span.SetAttributes(attribute.String("PostSpellHandler.Error", err.Error()))
+			http.Error(w, SpellAlreadyExists,
+				http.StatusConflict)
+			return
+		} else if err != nil {
+			span.SetAttributes(attribute.String("PostSpellHandler.Error", err.Error()))
+			http.Error(w, http.StatusText(http.StatusInternalServerError),
+				http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusCreated)
+		fmt.Fprint(w, "Spell added")
 	}
-
-	span.SetAttributes(attribute.Stringer("PostSpellHandler.Parsed", spell))
-
-	err = AddSpell(ctx, s.store, spell)
-	if err != nil && err.Error() == SpellAlreadyExists {
-		span.SetAttributes(attribute.String("PostSpellHandler.Error", err.Error()))
-		http.Error(w, SpellAlreadyExists,
-			http.StatusConflict)
-		return
-	} else if err != nil {
-		span.SetAttributes(attribute.String("PostSpellHandler.Error", err.Error()))
-		http.Error(w, http.StatusText(http.StatusInternalServerError),
-			http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusCreated)
-	fmt.Fprint(w, "Spell added")
 }
 
 func (s *SpellService) DeleteSpellHandler(w http.ResponseWriter, r *http.Request) {

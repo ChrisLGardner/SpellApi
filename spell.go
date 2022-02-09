@@ -45,6 +45,23 @@ type Spell struct {
 	Metadata    SpellMetadata          `json:"metadata,omitempty"`
 }
 
+type Request struct {
+	Data []map[string]interface{} `json:"data"`
+}
+
+type Response struct {
+	Count           int             `json:"count"`
+	TraceId         string          `json:"traceid,omitempty"`
+	ResponseCode    int             `json:"responsecode"`
+	ResponseMessage string          `json:"responsemessage"`
+	Data            []ErrorResponse `json:"data"`
+}
+
+type ErrorResponse struct {
+	Message      string `json:"message"`
+	ResponseCode int    `json:"responsecode"`
+}
+
 func (s *Spell) UnmarshalJSON(data []byte) error {
 	var temp struct {
 		Name        string                 `json:"name"`
