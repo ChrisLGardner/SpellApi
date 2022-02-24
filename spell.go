@@ -27,6 +27,18 @@ type Store interface {
 	GetMetadataNames(ctx context.Context) ([]string, error)
 }
 
+type StoreReader interface {
+	GetSpell(ctx context.Context, search bson.M) ([]bson.M, error)
+}
+
+type StoreAddWriter interface {
+	AddSpell(ctx context.Context, spell []byte) error
+}
+
+type StoreDeleteWriter interface {
+	DeleteSpell(ctx context.Context, spell bson.M) error
+}
+
 type FeatureFlags interface {
 	GetUser(ctx context.Context, r *http.Request) lduser.User
 	GetIntFlag(ctx context.Context, flag string, user lduser.User) int
@@ -124,7 +136,7 @@ func (s SpellMetadata) String() string {
 	return string(json)
 }
 
-func FindSpell(ctx context.Context, db Store, name string, query url.Values) (Spell, error) {
+func FindSpell(ctx context.Context, db StoreReader, name string, query url.Values) (Spell, error) {
 	tracer := otel.Tracer("Encantus")
 	ctx, span := tracer.Start(ctx, "FindSpell")
 	defer span.End()
@@ -283,7 +295,7 @@ func DeleteSpell(ctx context.Context, db Store, spell string, query url.Values) 
 	return nil
 }
 
-func GetAllSpell(ctx context.Context, db Store, query url.Values) ([]Spell, error) {
+func GetAllSpell(ctx context.Context, db StoreReader, query url.Values) ([]Spell, error) {
 	tracer := otel.Tracer("Encantus")
 	ctx, span := tracer.Start(ctx, "GetAllSpell")
 	defer span.End()
