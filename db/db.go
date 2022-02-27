@@ -11,12 +11,20 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-type DB struct {
+type DB interface {
+	GetSpell(ctx context.Context, search bson.M) ([]bson.M, error)
+	AddSpell(ctx context.Context, spell []byte) error
+	DeleteSpell(ctx context.Context, spell bson.M) error
+	GetMetadataValues(ctx context.Context, metadataName string) ([]string, error)
+	GetMetadataNames(ctx context.Context) ([]string, error)
+}
+
+type myDB struct {
 	*mongo.Client
 }
 
 // Connect to the specified mongo instance using the context for timeout
-func ConnectDb(uri string) (*DB, error) {
+func ConnectDb(uri string) (DB, error) {
 	ctx := context.Background()
 	clientOptions := options.Client().ApplyURI(uri).SetDirect(true)
 	c, err := mongo.NewClient(clientOptions)
@@ -34,7 +42,7 @@ func ConnectDb(uri string) (*DB, error) {
 		return nil, err
 	}
 
-	return &DB{c}, nil
+	return &myDB{c}, nil
 }
 
 //	collection := mc.Database("reminders").Collection("reminders")
@@ -181,7 +189,7 @@ func getKeys(ctx context.Context, mc *mongo.Collection) ([]bson.M, error) {
 	return results, nil
 }
 
-func (db *DB) GetSpell(ctx context.Context, search bson.M) ([]bson.M, error) {
+func (db *myDB) GetSpell(ctx context.Context, search bson.M) ([]bson.M, error) {
 
 	tracer := otel.Tracer("Encantus")
 	ctx, span := tracer.Start(ctx, "Mongo.GetSpell")
@@ -202,7 +210,7 @@ func (db *DB) GetSpell(ctx context.Context, search bson.M) ([]bson.M, error) {
 	return result, nil
 }
 
-func (db *DB) AddSpell(ctx context.Context, spell []byte) error {
+func (db *myDB) AddSpell(ctx context.Context, spell []byte) error {
 
 	tracer := otel.Tracer("Encantus")
 	ctx, span := tracer.Start(ctx, "Mongo.AddSpell")
@@ -221,7 +229,7 @@ func (db *DB) AddSpell(ctx context.Context, spell []byte) error {
 	return nil
 }
 
-func (db *DB) DeleteSpell(ctx context.Context, spell bson.M) error {
+func (db *myDB) DeleteSpell(ctx context.Context, spell bson.M) error {
 
 	tracer := otel.Tracer("Encantus")
 	ctx, span := tracer.Start(ctx, "Mongo.DeleteSpell")
@@ -240,7 +248,7 @@ func (db *DB) DeleteSpell(ctx context.Context, spell bson.M) error {
 	return nil
 }
 
-func (db *DB) GetMetadataValues(ctx context.Context, metadataName string) ([]string, error) {
+func (db *myDB) GetMetadataValues(ctx context.Context, metadataName string) ([]string, error) {
 	tracer := otel.Tracer("Encantus")
 	ctx, span := tracer.Start(ctx, "Mongo.GetMetadataValues")
 	defer span.End()
@@ -256,7 +264,7 @@ func (db *DB) GetMetadataValues(ctx context.Context, metadataName string) ([]str
 	return values, nil
 }
 
-func (db *DB) GetMetadataNames(ctx context.Context) ([]string, error) {
+func (db *myDB) GetMetadataNames(ctx context.Context) ([]string, error) {
 	tracer := otel.Tracer("Encantus")
 	ctx, span := tracer.Start(ctx, "Mongo.GetMetadataNames")
 	defer span.End()

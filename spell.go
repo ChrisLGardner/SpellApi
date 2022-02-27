@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/chrislgardner/spellapi/db"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -19,14 +20,6 @@ const (
 	SpellAlreadyExists     = "spell already exists for this system"
 )
 
-type Store interface {
-	GetSpell(ctx context.Context, search bson.M) ([]bson.M, error)
-	AddSpell(ctx context.Context, spell []byte) error
-	DeleteSpell(ctx context.Context, spell bson.M) error
-	GetMetadataValues(ctx context.Context, metadata string) ([]string, error)
-	GetMetadataNames(ctx context.Context) ([]string, error)
-}
-
 type FeatureFlags interface {
 	GetUser(ctx context.Context, r *http.Request) lduser.User
 	GetIntFlag(ctx context.Context, flag string, user lduser.User) int
@@ -34,7 +27,7 @@ type FeatureFlags interface {
 }
 
 type SpellService struct {
-	store Store
+	store db.DB
 	flags FeatureFlags
 }
 
@@ -124,7 +117,7 @@ func (s SpellMetadata) String() string {
 	return string(json)
 }
 
-func FindSpell(ctx context.Context, db Store, name string, query url.Values) (Spell, error) {
+func FindSpell(ctx context.Context, db db.DB, name string, query url.Values) (Spell, error) {
 	tracer := otel.Tracer("Encantus")
 	ctx, span := tracer.Start(ctx, "FindSpell")
 	defer span.End()
@@ -187,7 +180,7 @@ func FindSpell(ctx context.Context, db Store, name string, query url.Values) (Sp
 	return s, nil
 }
 
-func AddSpell(ctx context.Context, db Store, spell Spell) error {
+func AddSpell(ctx context.Context, db db.DB, spell Spell) error {
 	tracer := otel.Tracer("Encantus")
 	ctx, span := tracer.Start(ctx, "AddSpell")
 	defer span.End()
@@ -250,7 +243,7 @@ func ParseSpell(ctx context.Context, in []byte) (Spell, error) {
 	return s, nil
 }
 
-func DeleteSpell(ctx context.Context, db Store, spell string, query url.Values) error {
+func DeleteSpell(ctx context.Context, db db.DB, spell string, query url.Values) error {
 	tracer := otel.Tracer("Encantus")
 	ctx, span := tracer.Start(ctx, "DeleteSpell")
 	defer span.End()
@@ -283,7 +276,7 @@ func DeleteSpell(ctx context.Context, db Store, spell string, query url.Values) 
 	return nil
 }
 
-func GetAllSpell(ctx context.Context, db Store, query url.Values) ([]Spell, error) {
+func GetAllSpell(ctx context.Context, db db.DB, query url.Values) ([]Spell, error) {
 	tracer := otel.Tracer("Encantus")
 	ctx, span := tracer.Start(ctx, "GetAllSpell")
 	defer span.End()
@@ -340,7 +333,7 @@ func GetAllSpell(ctx context.Context, db Store, query url.Values) ([]Spell, erro
 	return s, nil
 }
 
-func GetSpellMetadata(ctx context.Context, db Store, metadataName string) ([]string, error) {
+func GetSpellMetadata(ctx context.Context, db db.DB, metadataName string) ([]string, error) {
 
 	tracer := otel.Tracer("Encantus")
 	ctx, span := tracer.Start(ctx, "GetSpellMetadata")
@@ -364,7 +357,7 @@ func GetSpellMetadata(ctx context.Context, db Store, metadataName string) ([]str
 	return results, nil
 }
 
-func GetAllSpellMetadata(ctx context.Context, db Store, query url.Values) ([]string, error) {
+func GetAllSpellMetadata(ctx context.Context, db db.DB, query url.Values) ([]string, error) {
 	tracer := otel.Tracer("Encantus")
 	ctx, span := tracer.Start(ctx, "GetAllSpellMetadata")
 	defer span.End()
