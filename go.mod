@@ -11,9 +11,7 @@ require (
 	go.opentelemetry.io/otel v1.0.1
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.0.1
 	go.opentelemetry.io/otel/sdk v1.0.1
-	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2 // indirect
-	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4 // indirect
-	golang.org/x/text v0.3.6 // indirect
+	golang.org/x/crypto v0.1.0 // indirect
 	google.golang.org/grpc v1.41.0
 	gopkg.in/launchdarkly/go-sdk-common.v2 v2.2.2
 	gopkg.in/launchdarkly/go-server-sdk.v5 v5.3.0
